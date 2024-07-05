@@ -1,0 +1,27 @@
+{
+  "name": "apollo-graphql-demo",
+  "version": "1.0.0",
+  "description": "- Apollo GraphQl Postgres Prisma Typescript Demo",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apollo-server-express": "^3.13.0",
+    "express": "^4.19.2",
+    "graphql": "^16.9.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/graphql": "^14.5.0",
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}
