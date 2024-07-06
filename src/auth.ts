@@ -13,21 +13,27 @@ function getTokenPayload(token: string) {
 }
 
 function getUserId(req: Request, authToken?: string) {
-  if (req) {
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      if (!token) {
-        throw new CustomError('Token Not Found', 401, 'UNAUTHORIZED');
+  try {
+    if (req) {
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        if (!token) {
+          throw new CustomError('Token Not Found', 401, 'UNAUTHORIZED');
+        }
+        const { id } = getTokenPayload(token);
+        if (!id) {
+          throw new CustomError('Invalid Token', 401, 'UNAUTHORIZED');
+        }
+        return id;
       }
-      const { id } = getTokenPayload(token);
+    } else if (authToken) {
+      const { id } = getTokenPayload(authToken);
       return id;
     }
-  } else if (authToken) {
-    const { id } = getTokenPayload(authToken);
-    return id;
+  } catch (error) {
+    throw new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
   }
-  throw new CustomError('Not authenticated', 401, 'UNAUTHORIZED');
 }
 
 export { APP_SECRET, APP_SECRET_REFRESH, ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY, getUserId };

@@ -4,7 +4,6 @@ import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import CustomError from '../src/customError';
 import { getUserId } from '../src/auth';
-import { create } from 'domain';
 
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn(),
@@ -25,8 +24,8 @@ describe('Resolvers', () => {
     it('Success: should return reviews for authenticated user', async () => {
       const userId = 1;
       const reviews = [
-        { id: 1, rating: 5, comment: 'Great book!', bookId: 1, userId, createdAt: new Date(), updatedAt: new Date()},
-        { id: 2, rating: 4, comment: 'Good read.', bookId: 2, userId, createdAt: new Date(), updatedAt: new Date()},
+        { id: 1, rating: 5, comment: 'Great book!', bookId: 1, userId, createdAt: new Date(), updatedAt: new Date() },
+        { id: 2, rating: 4, comment: 'Good read.', bookId: 2, userId, createdAt: new Date(), updatedAt: new Date() },
       ];
 
       (getUserId as jest.Mock).mockReturnValue(userId);
@@ -35,7 +34,8 @@ describe('Resolvers', () => {
       const result = await resolvers.Query.getMyReviews(
         {},
         { skip: 0, take: 10 },
-        { prisma: prismaMock, req: {} }
+        { prisma: prismaMock, req: {} },
+        { userId }
       );
 
       expect(result).toEqual(reviews);
@@ -51,7 +51,7 @@ describe('Resolvers', () => {
       const expectedError = new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
 
       await expect(
-        resolvers.Query.getMyReviews({}, { skip: 0, take: 10 }, { prisma: prismaMock, req: {} })
+        resolvers.Query.getMyReviews({}, { skip: 0, take: 10 }, { prisma: prismaMock, req: {} }, {})
       ).rejects.toThrow(expectedError);
 
       expect(prismaMock.review.findMany).not.toHaveBeenCalled();
@@ -64,7 +64,7 @@ describe('Resolvers', () => {
       const expectedError = new CustomError('\"skip\" must be a number', 400, 'BAD_USER_INPUT');
 
       await expect(
-        resolvers.Query.getMyReviews({}, { skip: 'invalid', take: 10 }, { prisma: prismaMock, req: {} })
+        resolvers.Query.getMyReviews({}, { skip: 'invalid', take: 10 }, { prisma: prismaMock, req: {} }, { userId })
       ).rejects.toThrow(expectedError);
 
       expect(prismaMock.review.findMany).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe('Resolvers', () => {
       const expectedError = new CustomError('Failed to getReviews', 500, 'INTERNAL_SERVER_ERROR');
 
       await expect(
-        resolvers.Query.getMyReviews({}, { skip: 0, take: 10 }, { prisma: prismaMock, req: {} })
+        resolvers.Query.getMyReviews({}, { skip: 0, take: 10 }, { prisma: prismaMock, req: {} }, { userId })
       ).rejects.toThrow(expectedError);
 
       expect(prismaMock.review.findMany).toHaveBeenCalledTimes(1);
@@ -290,7 +290,8 @@ describe('Resolvers', () => {
       const result = await resolvers.Mutation.addBook(
         {},
         { title: 'New Book', publishedYear: 2024, author: 'Author' },
-        { prisma: prismaMock, req: {} }
+        { prisma: prismaMock, req: {} },
+        { userId }
       );
 
       expect(result).toEqual(book);
@@ -306,7 +307,8 @@ describe('Resolvers', () => {
         resolvers.Mutation.addBook(
           {},
           { title: invalidTitle, publishedYear: 2024, author: 'Author' },
-          { prisma: prismaMock, req: {} }
+          { prisma: prismaMock, req: {} },
+          { userId: 1 }
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.book.create).not.toHaveBeenCalled();
@@ -322,7 +324,8 @@ describe('Resolvers', () => {
       const result = await resolvers.Mutation.addReview(
         {},
         { bookId: 1, rating: 5, comment: 'Great book!' },
-        { prisma: prismaMock, req: {} }
+        { prisma: prismaMock, req: {} },
+        { userId }
       );
 
       expect(result).toEqual(review);
@@ -338,7 +341,8 @@ describe('Resolvers', () => {
         resolvers.Mutation.addReview(
           {},
           { bookId: 1, rating: invalidRating, comment: 'Great book!' },
-          { prisma: prismaMock, req: {} }
+          { prisma: prismaMock, req: {} },
+          { userId: 1 }
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.create).not.toHaveBeenCalled();
@@ -351,7 +355,8 @@ describe('Resolvers', () => {
         resolvers.Mutation.addReview(
           {},
           { bookId: 1, rating: 5, comment: 'Great book!' },
-          { prisma: prismaMock, req: {} }
+          { prisma: prismaMock, req: {} },
+          {}
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.create).not.toHaveBeenCalled();
@@ -363,11 +368,11 @@ describe('Resolvers', () => {
       const userId = 1;
       (getUserId as jest.Mock).mockReturnValue(userId);
       prismaMock.review.update.mockResolvedValue(review);
-
       const result = await resolvers.Mutation.updateReview(
         {},
-        { id: 1, rating: 5, text: 'Updated review' },
-        { prisma: prismaMock, req: {} }
+        { id: 1, rating: 5, comment: 'Updated review' },
+        { prisma: prismaMock, req: {} },
+        { userId }
       );
 
       expect(result).toEqual(review);
@@ -382,8 +387,9 @@ describe('Resolvers', () => {
       await expect(
         resolvers.Mutation.updateReview(
           {},
-          { id: 1, rating: invalidRating, text: 'Updated review' },
-          { prisma: prismaMock, req: {} }
+          { id: 1, rating: invalidRating, comment: 'Updated review' },
+          { prisma: prismaMock, req: {} },
+          { userId: 1 }
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.update).not.toHaveBeenCalled();
@@ -396,8 +402,9 @@ describe('Resolvers', () => {
       await expect(
         resolvers.Mutation.updateReview(
           {},
-          { id: 1, rating: 5, text: 'Updated review' },
-          { prisma: prismaMock, req: {} }
+          { id: 1, rating: 5, comment: 'Updated review' },
+          { prisma: prismaMock, req: {} },
+          {}
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.update).not.toHaveBeenCalled();
@@ -405,7 +412,7 @@ describe('Resolvers', () => {
   });
   describe('Mutation deleteReview test cases', () => {
     it('Success: should delete a review', async () => {
-      const review: any = { id: 1, bookId: 1, rating: 5, text: 'Great book!', userId: 1 };
+      const review: any = { id: 1, bookId: 1, rating: 5, comment: 'Great book!', userId: 1 };
       const userId = 1;
       (getUserId as jest.Mock).mockReturnValue(userId);
       prismaMock.review.delete.mockResolvedValue(review);
@@ -413,7 +420,8 @@ describe('Resolvers', () => {
       const result = await resolvers.Mutation.deleteReview(
         {},
         { id: 1 },
-        { prisma: prismaMock, req: {} }
+        { prisma: prismaMock, req: {} },
+        { userId }
       );
 
       expect(result).toEqual(review);
@@ -429,7 +437,8 @@ describe('Resolvers', () => {
         resolvers.Mutation.deleteReview(
           {},
           { id: invalidId },
-          { prisma: prismaMock, req: {} }
+          { prisma: prismaMock, req: {} },
+          { userId: 1 }
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.delete).not.toHaveBeenCalled();
@@ -443,7 +452,8 @@ describe('Resolvers', () => {
         resolvers.Mutation.deleteReview(
           {},
           { id: 1 },
-          { prisma: prismaMock, req: {} }
+          { prisma: prismaMock, req: {} },
+          {}
         )
       ).rejects.toThrow(expectedError);
       expect(prismaMock.review.delete).not.toHaveBeenCalled();

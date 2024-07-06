@@ -1,10 +1,9 @@
 import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import authMiddleware from '../middleware/auth';
-import { ACCESS_TOKEN_EXPIRY, APP_SECRET, APP_SECRET_REFRESH, REFRESH_TOKEN_EXPIRY, getUserId } from '../auth';
+import { ACCESS_TOKEN_EXPIRY, APP_SECRET, APP_SECRET_REFRESH, REFRESH_TOKEN_EXPIRY } from '../auth';
 import { registerSchema, loginSchema, getBookSchema, getReviewsSchema, addBookSchema, addReviewSchema, updateReviewSchema, deleteReviewSchema, getReviewsSchemaFilter, getMyReviewsSchema } from './validators';
 import CustomError from '../customError';
-import { exit } from 'process';
 const resolvers = {
     Query: {
         getBooks: async (parent: any, args: any, context: { prisma: { book: { findMany: () => any; }; }; }) => {
@@ -45,9 +44,9 @@ const resolvers = {
                 throw new CustomError('Failed to getReviews', 500, 'INTERNAL_SERVER_ERROR');
             }
         },
-        getMyReviews: async (parent: any, { skip, take }: any, context: { prisma: { review: { findMany: (arg0: { where: any; skip: any; take: any; }) => any; }; }; } | any) => {
+        getMyReviews: authMiddleware(async (parent: any, { skip, take }: any, context: { prisma: { review: { findMany: (arg0: { where: any; skip: any; take: any; }) => any; }; }; } | any) => {
             try {
-                const userId = getUserId(context.req);;
+                const userId = context.userId;
                 if (!userId) {
                     throw new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
                 }
@@ -64,7 +63,7 @@ const resolvers = {
             } catch (error) {
                 throw new CustomError(error instanceof CustomError ? error.message : 'Failed to getReviews', error instanceof CustomError ? error.statusCode : 500, error instanceof CustomError ? error.code : 'INTERNAL_SERVER_ERROR');
             }
-        },        
+        }),        
         searchBooks: async (parent: any, { filter, skip, take }: any, context: { prisma: { book: { findMany: (arg0: { where: {}; skip: any; take: any; }) => any; }; }; }) => {
             try {
                 const where: any = {};
@@ -166,9 +165,9 @@ const resolvers = {
                 }
             }
         },
-        addBook: async (parent: any, { title, author, publishedYear }: any, context: { prisma: { book: { create: (arg0: { data: { title: any; author: any; }; }) => any; }; }; } | any) => {
+        addBook: authMiddleware(async (parent: any, { title, author, publishedYear }: any, context: { prisma: { book: { create: (arg0: { data: { title: any; author: any; }; }) => any; }; }; } | any) => {
             try {
-                const userId = getUserId(context.req);
+                const userId = context.userId;
                 const { error } = addBookSchema.validate({ title, author, publishedYear });
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
@@ -181,17 +180,14 @@ const resolvers = {
                     throw new CustomError('Failed to addBook', 500, 'INTERNAL_SERVER_ERROR');
                 }
             }
-        },
-        addReview: async (parent: any, { bookId, rating, comment }: any, context: any) => {
+        }),
+        addReview: authMiddleware(async (parent: any, { bookId, rating, comment }: any, context: any) => {
             try {
                 const { error } = addReviewSchema.validate({ bookId, rating, comment });
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
                 }
-                const userId = getUserId(context.req);
-                if (!userId) {
-                    throw new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
-                }
+                const userId = context.userId;
                 return context.prisma.review.create({
                     data: { bookId, rating, comment, userId },
                 });
@@ -203,19 +199,16 @@ const resolvers = {
                     throw new CustomError('Failed to addReview', 500, 'INTERNAL_SERVER_ERROR');
                 }
             }
-        },
-        updateReview: async (parent: any, { id, rating, comment }: any, context: { prisma: { review: { update: (arg0: { where: { id: any; }; data: { rating: any; text: any; }; }) => any; }; }; } | any) => {
+        }),
+        updateReview: authMiddleware(async (parent: any, { id, rating, comment }: any, context: { prisma: { review: { update: (arg0: { where: { id: any; }; data: { rating: any; text: any; }; }) => any; }; }; } | any) => {
             try {
-                const userId = getUserId(context.req);
-                if (!userId) {
-                    throw new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
-                }
+                const userId = context.userId;
                 const { error } = updateReviewSchema.validate({ id, rating, comment });
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
                 }
                 return context.prisma.review.update({
-                    where: { id },
+                    where: { id, userId },
                     data: { rating, comment },
                 });
             } catch (error) {
@@ -225,18 +218,15 @@ const resolvers = {
                     throw new CustomError('Failed to updateReview', 500, 'INTERNAL_SERVER_ERROR');
                 }
             }
-        },
-        deleteReview: async (parent: any, { id }: any, context: { prisma: { review: { delete: (arg0: { where: { id: any; }; }) => any; }; }; } | any) => {
+        }),
+        deleteReview: authMiddleware(async (parent: any, { id }: any, context: { prisma: { review: { delete: (arg0: { where: { id: any; }; }) => any; }; }; } | any) => {
             try {
-                const userId = getUserId(context.req);
-                if (!userId) {
-                    throw new CustomError('User not authenticated', 401, 'UNAUTHORIZED');
-                }
+                const userId = context.userId;
                 const { error } = deleteReviewSchema.validate({ id });
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
                 }
-                return context.prisma.review.delete({ where: { id } });
+                return context.prisma.review.delete({ where: { id, userId } });
             } catch (error) {
                 if (error instanceof CustomError) {
                     throw new CustomError(error.message, error.statusCode, error.code ?? '', error.stack ?? '');
@@ -244,7 +234,7 @@ const resolvers = {
                     throw new CustomError('Failed to deleteReview', 500, 'INTERNAL_SERVER_ERROR');
                 }
             }
-        },
+        }),
     },
     User: {
         reviews: (parent: { id: any; }, args: any, context: { prisma: { review: { findMany: (arg0: { where: { userId: any; }; }) => any; }; }; }) => {
