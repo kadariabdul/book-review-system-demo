@@ -11,6 +11,7 @@ const typeDefs = gql`
   
   type Mutation {
     login(email: String!, password: String!): AuthPayload
+    getNewAccessToken: getNewAccessTokenPayload
     register(name:String!, email: String!, password: String!): User
     addBook(title: String!, author: String!, publishedYear: Int!): Book
     addReview(bookId: Int!, rating: Int!, comment: String!): Review
@@ -46,6 +47,11 @@ const typeDefs = gql`
   type AuthPayload {
     accessToken: String
     refreshToken: String
+    user: User
+  }
+
+  type getNewAccessTokenPayload {
+    accessToken: String
     user: User
   }
 

@@ -1,6 +1,6 @@
 import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import authMiddleware from '../middleware/auth';
+import { authMiddleware, authMiddlewareRefresh } from '../middleware/auth';
 import { ACCESS_TOKEN_EXPIRY, APP_SECRET, APP_SECRET_REFRESH, REFRESH_TOKEN_EXPIRY } from '../auth';
 import { registerSchema, loginSchema, getBookSchema, getReviewsSchema, addBookSchema, addReviewSchema, updateReviewSchema, deleteReviewSchema, getReviewsSchemaFilter, getMyReviewsSchema } from './validators';
 import CustomError from '../customError';
@@ -165,6 +165,25 @@ const resolvers = {
                 }
             }
         },
+        getNewAccessToken: authMiddlewareRefresh(async (parent: any, { }: any, context: { prisma:  { user: { findUnique: (arg0: { where: { id: any; }; }) => any; }; }; } | any) => {
+            try {
+                const userId = context.userId;
+                const user = await context.prisma.user.findUnique({ where: { id: userId } });
+                if (!user) {
+                    throw new CustomError('No such user found', 404, 'NOT_FOUND');
+                }
+                const token = jwt.sign({ ...user }, APP_SECRET, {
+                    expiresIn: ACCESS_TOKEN_EXPIRY
+                });
+                return { accessToken: token, user };
+            } catch (error) {
+                if (error instanceof CustomError) {
+                    throw new CustomError(error.message, error.statusCode, error.code ?? '', error.stack ?? '');
+                } else {
+                    throw new CustomError('Failed to getNewAccessToken', 500, 'INTERNAL_SERVER_ERROR');
+                }
+            }
+        }),
         addBook: authMiddleware(async (parent: any, { title, author, publishedYear }: any, context: { prisma: { book: { create: (arg0: { data: { title: any; author: any; }; }) => any; }; }; } | any) => {
             try {
                 const userId = context.userId;
@@ -188,6 +207,10 @@ const resolvers = {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
                 }
                 const userId = context.userId;
+                const review = await context.prisma.review.findUnique({ where: { bookId, userId } });
+                if (review) {
+                    throw new CustomError('Already review to this book', 400, 'INVALID_REQUEST');
+                }
                 return context.prisma.review.create({
                     data: { bookId, rating, comment, userId },
                 });
@@ -207,6 +230,10 @@ const resolvers = {
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
                 }
+                const review = await context.prisma.review.findUnique({ where: { id, userId } });
+                if (!review) {
+                    throw new CustomError('Review not found', 404, 'NOT_FOUND');
+                }
                 return context.prisma.review.update({
                     where: { id, userId },
                     data: { rating, comment },
@@ -225,6 +252,10 @@ const resolvers = {
                 const { error } = deleteReviewSchema.validate({ id });
                 if (error) {
                     throw new CustomError(error.details[0].message, 400, 'BAD_USER_INPUT');
+                }
+                const review = await context.prisma.review.findUnique({ where: { id, userId } });
+                if (!review) {
+                    throw new CustomError('Review not found', 404, 'NOT_FOUND');
                 }
                 return context.prisma.review.delete({ where: { id, userId } });
             } catch (error) {

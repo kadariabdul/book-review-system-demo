@@ -3,7 +3,7 @@ import { prismaMock } from './mocks/prisma.mock';
 import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import CustomError from '../src/customError';
-import { getUserId } from '../src/auth';
+import { getUserId, getUserIdRefreshToken } from '../src/auth';
 
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn(),
@@ -14,6 +14,7 @@ jest.mock('bcryptjs', () => ({
 }));
 jest.mock('../src/auth', () => ({
   getUserId: jest.fn(),
+  getUserIdRefreshToken: jest.fn(),
 }));
 
 describe('Resolvers', () => {
@@ -280,6 +281,30 @@ describe('Resolvers', () => {
       expect(jwt.sign).not.toHaveBeenCalled();
     });
   });
+  describe('Mutation get new Access token test cases', () => {
+    it('Success: should get a new access token', async () => {
+      try {
+        const user = { id: 1, name: 'John Doe', email: 'john@example.com', password: 'hashedPassword' };
+        const userId = 1;
+        (getUserIdRefreshToken as jest.Mock).mockReturnValue(userId);
+        prismaMock.user.findUnique.mockResolvedValue(user);
+        const token = 'new-access-token';
+        (jwt.sign as jest.Mock).mockReturnValue(token);
+        const result = await resolvers.Mutation.getNewAccessToken(
+          {},
+          {},
+          { prisma: prismaMock, req: {} },
+          { userId }
+        );
+        expect(result).toEqual({ accessToken: token, user });
+        expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(1);
+        expect(jwt.sign).toHaveBeenCalledTimes(1);
+      } catch (error) {
+        console.log(error)
+      }
+
+    });
+  });
   describe('Mutation addBook test cases', () => {
     it('Success: should add a new book', async () => {
       const book: any = { id: 1, title: 'New Book', author: 'Author', publishedYear: 2024 };
@@ -364,10 +389,12 @@ describe('Resolvers', () => {
   });
   describe('Mutation updateReview test cases', () => {
     it('Success: should update a review', async () => {
-      const review: any = { id: 1, bookId: 1, rating: 5, comment: 'Updated review', userId: 1 };
       const userId = 1;
+      const review = { id: 1, rating: 4, comment: 'Updated review', userId, bookId: 1, createdAt: new Date(), updatedAt: new Date()};
       (getUserId as jest.Mock).mockReturnValue(userId);
+      prismaMock.review.findUnique.mockResolvedValue(review);
       prismaMock.review.update.mockResolvedValue(review);
+
       const result = await resolvers.Mutation.updateReview(
         {},
         { id: 1, rating: 5, comment: 'Updated review' },
@@ -376,7 +403,29 @@ describe('Resolvers', () => {
       );
 
       expect(result).toEqual(review);
-      expect(prismaMock.review.update).toHaveBeenCalledTimes(1);
+      expect(prismaMock.review.findUnique).toHaveBeenCalledWith({ where: { id: 1, userId } });
+      expect(prismaMock.review.update).toHaveBeenCalledWith({
+        where: { id: 1, userId },
+        data: { rating: 5, comment: 'Updated review' },
+      });
+    });
+
+    it('Error: should throw an error if review is not found', async () => {
+      const userId = 1;
+      (getUserId as jest.Mock).mockReturnValue(userId);
+      prismaMock.review.findUnique.mockResolvedValue(null);
+
+      await expect(
+        resolvers.Mutation.updateReview(
+          {},
+          { id: 1, rating: 5, comment: 'Updated review' },
+          { prisma: prismaMock, req: {} },
+          { userId }
+        )
+      ).rejects.toThrow(new CustomError('Review not found', 404, 'NOT_FOUND'));
+
+      expect(prismaMock.review.findUnique).toHaveBeenCalledWith({ where: { id: 1, userId } });
+      expect(prismaMock.review.update).not.toHaveBeenCalled();
     });
 
     it('Error: should throw validation error on invalid review data', async () => {
@@ -415,15 +464,14 @@ describe('Resolvers', () => {
       const review: any = { id: 1, bookId: 1, rating: 5, comment: 'Great book!', userId: 1 };
       const userId = 1;
       (getUserId as jest.Mock).mockReturnValue(userId);
+      prismaMock.review.findUnique.mockResolvedValue(review);
       prismaMock.review.delete.mockResolvedValue(review);
-
       const result = await resolvers.Mutation.deleteReview(
         {},
         { id: 1 },
         { prisma: prismaMock, req: {} },
         { userId }
       );
-
       expect(result).toEqual(review);
       expect(prismaMock.review.delete).toHaveBeenCalledTimes(1);
     });
