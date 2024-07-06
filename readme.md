@@ -6,11 +6,11 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/kadariabdul/apollo-graphql-demo.git
+   git clone https://github.com/kadariabdul/book-review-system-demo.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd apollo-graphql-demo
+   cd book-review-system-demo
    ```
 3. Install dependencies:
    ```bash
