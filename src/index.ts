@@ -1,6 +1,7 @@
 import express from 'express';
-import helmet from 'helmet'; // Security middleware
+import helmet from 'helmet';
 import { ApolloServer } from 'apollo-server-express';
+import { ApolloServerPluginLandingPageGraphQLPlayground } from 'apollo-server-core';
 import { PrismaClient } from '@prisma/client';
 import typeDefs from './schema/typeDefs';
 import resolvers from './schema/resolvers';
@@ -40,6 +41,10 @@ const server = new ApolloServer({
       },
     };
   },
+  plugins: [
+    ApolloServerPluginLandingPageGraphQLPlayground()
+  ],
+  introspection: true, // Enable introspection
 });
 
 async function startServer() {
