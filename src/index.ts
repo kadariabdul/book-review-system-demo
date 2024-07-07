@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import cors from 'cors'; // Add CORS import
 import { ApolloServer } from 'apollo-server-express';
 import { ApolloServerPluginLandingPageGraphQLPlayground } from 'apollo-server-core';
 import { PrismaClient } from '@prisma/client';
@@ -12,7 +13,14 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 const app = express();
-app.use(helmet());
+
+app.use(
+  helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false, // Disable CSP in development for debugging
+  })
+);
+
+app.use(cors());
 
 const server = new ApolloServer({
   typeDefs,
