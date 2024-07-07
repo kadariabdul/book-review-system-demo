@@ -19,7 +19,7 @@
 4. Create a `.env` file in the root directory and environment variables from `.env.sample`. 
 5. Run the Prisma migrations:
    ```bash
-   npx prisma migrate dev --init
+   npx prisma migrate dev
    ```
 6. Start the server:
    ```bash
